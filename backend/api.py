@@ -3,6 +3,7 @@ from pathlib import Path
 import tempfile
 from fastapi.responses import JSONResponse, StreamingResponse
 import requests
+from uuid import UUID
 
 # Third-party imports
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Body
@@ -259,6 +260,59 @@ async def list_jobs(
         return ListJobsResponse(jobs=jobs)
     except Exception as e:
         logger.error(f"Error listing jobs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+# job approval endpoint 
+@v1_router.post(
+    "/jobs/{job_id}/approve",
+    tags=["jobs"],
+    summary="Approve a job",
+    description="Approve a job by its ID",
+)
+async def approve_job(
+    job_id: str,
+    client: Client = Depends(get_client),
+) -> JSONResponse:
+    try:
+        datasite_client = init_session(client.email)
+        job = datasite_client.jobs.get(uid=UUID(job_id))
+        
+        # Approve the job
+        approved_job = datasite_client.jobs.approve(job)
+        logger.debug(f"Job {approved_job} approved successfully")
+        return JSONResponse(
+            content={"message": f"Job {job_id} approved successfully"},
+            status_code=200,
+        )
+    except Exception as e:
+        logger.error(f"Error approving job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+# job rejection endpoint
+@v1_router.post(
+    "/jobs/{job_id}/reject",
+    tags=["jobs"],
+    summary="Reject a job",
+    description="Reject a job by its ID",
+)
+async def reject_job(
+    job_id: str,
+    client: Client = Depends(get_client),
+) -> JSONResponse:
+    try:
+        datasite_client = init_session(client.email)
+        job = datasite_client.jobs.get(uid=UUID(job_id))
+        
+        # Reject the job
+        rejected_job = datasite_client.jobs.reject(job)
+        logger.debug(f"Job {rejected_job} rejected successfully")
+        return JSONResponse(
+            content={"message": f"Job {job_id} rejected successfully"},
+            status_code=200,
+        )
+    except Exception as e:
+        logger.error(f"Error rejecting job {job_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
