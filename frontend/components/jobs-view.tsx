@@ -23,6 +23,16 @@ import {
 } from "lucide-react";
 import { apiService, type Job } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import React from "react";
+
+// Helper to get API base URL (browser only)
+const getApiBaseUrl = () => {
+  if (typeof window !== "undefined" && (window as any).NEXT_PUBLIC_API_URL) {
+    return (window as any).NEXT_PUBLIC_API_URL;
+  }
+  return "";
+};
 
 export function JobsView() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -30,6 +40,7 @@ export function JobsView() {
   const [autoApprovalEmails, setAutoApprovalEmails] = useState<string[]>([]);
   const [newEmail, setNewEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     loadJobs();
@@ -78,7 +89,7 @@ export function JobsView() {
     setIsLoading(true);
     try {
       // Remove the email from the list and send the updated list
-      const updatedList = autoApprovalEmails.filter((e) => e !== email);
+      const updatedList = autoApprovalEmails.filter((e: string) => e !== email);
       await apiService.setAutoApprovedDatasites(updatedList);
       setAutoApprovalEmails(updatedList);
     } catch (error) {
@@ -88,18 +99,39 @@ export function JobsView() {
     }
   };
 
-  const handleJobAction = (jobId: number, action: "approve" | "deny") => {
-    setJobs(
-      jobs.map((job) =>
-        job.id === jobId
-          ? { ...job, status: action === "approve" ? "approved" : "denied" }
-          : job
-      )
-    );
+  const handleJobAction = async (jobId: string, action: "approve" | "deny") => {
+    try {
+      let endpoint = action === "approve" ? "approve" : "reject";
+      const response = await fetch(
+        `${getApiBaseUrl()}/api/v1/jobs/${jobId}/${endpoint}`,
+        { method: "POST" }
+      );
+      if (!response.ok) {
+        const error = await response.json();
+        toast({
+          title: `Failed to ${action} job`,
+          description: error.detail || `Could not ${action} job.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: `Job ${action === "approve" ? "approved" : "denied"}`,
+        description: `Job ${jobId} was ${action === "approve" ? "approved" : "denied"} successfully`,
+      });
+      // Optionally reload jobs from backend
+      await loadJobs();
+    } catch (error: any) {
+      toast({
+        title: `Failed to ${action} job`,
+        description: error?.message || `Could not ${action} job.`,
+        variant: "destructive",
+      });
+    }
   };
 
   const getJobsByStatus = (status: Job["status"]) => {
-    return jobs.filter((job) => job.status === status);
+    return jobs.filter((job: Job) => job.status === status);
   };
 
   const getStatusColor = (status: Job["status"]) => {
@@ -161,8 +193,8 @@ export function JobsView() {
                 value={newEmail}
                 type="email"
                 autoComplete="off"
-                onChange={(e) => setNewEmail(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && addAutoApprovalEmail()}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewEmail(e.target.value)}
+                onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === "Enter" && addAutoApprovalEmail()}
                 disabled={isLoading}
               />
             </div>
@@ -179,7 +211,7 @@ export function JobsView() {
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">
-            {autoApprovalEmails.map((datasite_email) => (
+            {autoApprovalEmails.map((datasite_email: string) => (
               <Badge
                 key={datasite_email}
                 variant="secondary"
@@ -216,7 +248,7 @@ export function JobsView() {
           </div>
         </div>
       ) : (
-        (["pending", "approved", "denied"] as const).map((status) => {
+        (['pending', 'approved', 'denied'] as const).map((status) => {
           const statusJobs = getJobsByStatus(status);
           if (statusJobs.length === 0) return null;
 
@@ -230,7 +262,7 @@ export function JobsView() {
               </div>
 
               <div className="grid gap-4">
-                {statusJobs.map((job) => (
+                {statusJobs.map((job: Job) => (
                   <Card key={job.id}>
                     <CardHeader>
                       <div className="flex justify-between items-start">
@@ -249,7 +281,7 @@ export function JobsView() {
                       <div className="flex justify-between items-center">
                         <div className="space-y-1">
                           <p className="text-sm text-muted-foreground">
-                            Requested {timeAgo(job.requestedTime)} by{" "}
+                            Requested {timeAgo(job.requestedTime.toString())} by{" "}
                             {job.requesterEmail}
                           </p>
                         </div>
@@ -264,7 +296,7 @@ export function JobsView() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() =>
-                                  handleJobAction(job.id, "approve")
+                                  handleJobAction(String(job.id), "approve")
                                 }
                                 className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
                               >
@@ -274,7 +306,7 @@ export function JobsView() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleJobAction(job.id, "deny")}
+                                onClick={() => handleJobAction(String(job.id), "deny")}
                                 className="border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/30"
                               >
                                 <X className="mr-2 h-4 w-4" />
