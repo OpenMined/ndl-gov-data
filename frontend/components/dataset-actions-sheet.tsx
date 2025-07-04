@@ -61,7 +61,7 @@ import {
 } from "lucide-react";
 
 // Utils
-import { apiService, type Dataset } from "@/lib/api";
+import { apiService, type Dataset } from "@/lib/api/api";
 
 interface DatasetActionsSheetProps {
   dataset: Dataset | null;

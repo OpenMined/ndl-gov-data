@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Upload, FolderOpen } from "lucide-react";
-import { apiService } from "@/lib/api";
+import { apiService } from "@/lib/api/api";
 import { useDragDrop } from "@/components/drag-drop-context";
 
 interface CreateDatasetModalProps {
