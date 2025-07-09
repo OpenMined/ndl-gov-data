@@ -33,6 +33,7 @@ export function CreateDatasetModal({
 }: CreateDatasetModalProps) {
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
+  const [mockFile, setMockFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
@@ -74,14 +75,24 @@ export function CreateDatasetModal({
     }
   };
 
+  const handleMockFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (selectedFiles && selectedFiles.length > 0) {
+      setMockFile(selectedFiles[0]);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!file) {
-      setError("Please select a file");
+      setError("Please select a private dataset file");
       return;
     }
-
+    if (!mockFile) {
+      setError("Please select a mock dataset file");
+      return;
+    }
     if (!name.trim()) {
       setError("Please enter a dataset name");
       return;
@@ -92,14 +103,11 @@ export function CreateDatasetModal({
 
     try {
       const formData = new FormData();
-
-      // Add the file to FormData
       formData.append("dataset", file);
+      formData.append("mock_dataset", mockFile);
       formData.append("name", name.trim());
       formData.append("description", description.trim() || "");
-
       const result = await apiService.createDataset(formData);
-
       if (result.success) {
         onSuccess();
         resetForm();
@@ -118,6 +126,7 @@ export function CreateDatasetModal({
 
   const resetForm = () => {
     setFile(null);
+    setMockFile(null);
     setName("");
     setDescription("");
     setError("");
@@ -156,7 +165,7 @@ export function CreateDatasetModal({
           onDrop={handleFileDrop}
         >
           <div className="space-y-2">
-            <Label htmlFor="dataset-file">Dataset File *</Label>
+            <Label htmlFor="dataset-file">Private Dataset File *</Label>
             <div
               className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
                 activeDropZone === "create-dataset" && isDragging
@@ -180,7 +189,7 @@ export function CreateDatasetModal({
                         : "Drop your file here or click to select"}
                     </span>
                     <p className="text-muted-foreground mt-1">
-                      Choose your dataset file
+                      Choose your private dataset file
                     </p>
                   </div>
                 </div>
@@ -189,6 +198,38 @@ export function CreateDatasetModal({
             {file && (
               <p className="text-sm text-muted-foreground">
                 Selected: {file.name}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="mock-dataset-file">Mock Dataset File *</Label>
+            <div
+              className="relative border-2 border-dashed rounded-lg p-6 text-center border-muted-foreground/25 hover:border-muted-foreground/50"
+            >
+              <input
+                id="mock-dataset-file"
+                type="file"
+                onChange={handleMockFileChange}
+                className="hidden"
+              />
+              <label htmlFor="mock-dataset-file" className="block cursor-pointer">
+                <div className="space-y-2">
+                  <FolderOpen className="mx-auto h-8 w-8 text-muted-foreground" />
+                  <div className="text-sm">
+                    <span className="font-medium text-primary hover:underline">
+                      Click to select your mock dataset file
+                    </span>
+                    <p className="text-muted-foreground mt-1">
+                      Choose your mock dataset file
+                    </p>
+                  </div>
+                </div>
+              </label>
+            </div>
+            {mockFile && (
+              <p className="text-sm text-muted-foreground">
+                Selected: {mockFile.name}
               </p>
             )}
           </div>

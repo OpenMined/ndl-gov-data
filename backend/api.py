@@ -81,10 +81,11 @@ async def list_datasets(
     tags=["datasets"],
     status_code=201,
     summary="Create a new dataset",
-    description="Create a new dataset with a dataset file, name, and description",
+    description="Create a new dataset with a dataset file, mock dataset file, name, and description",
 )
 async def create_dataset(
-    dataset: UploadFile = File(..., description="The dataset file to upload"),
+    dataset: UploadFile = File(..., description="The private dataset file to upload"),
+    mock_dataset: UploadFile = File(..., description="The mock dataset file to upload"),
     name: str = Form(
         ..., min_length=1, max_length=100, description="The name of the dataset"
     ),
@@ -104,6 +105,11 @@ async def create_dataset(
                 status_code=400,
                 detail=f"Invalid file type for {dataset.filename}",
             )
+        if not mock_dataset.content_type:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid file type for {mock_dataset.filename}",
+            )
 
         # Save uploaded files
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -111,34 +117,19 @@ async def create_dataset(
             real_path.mkdir(parents=True, exist_ok=True)
             real_dataset_path = real_path / f"{dataset.filename}"
             real_dataset_path.write_bytes(dataset.file.read())
-            logger.debug(f"Uploaded dataset temporarily saved to: {real_dataset_path}")
+            logger.debug(f"Uploaded private dataset temporarily saved to: {real_dataset_path}")
 
-            # TODO auto-generate mock dataset
             mock_path = Path(temp_dir) / "mock"
             mock_path.mkdir(parents=True, exist_ok=True)
-            mock_dataset_path = mock_path / f"{dataset.filename}"
-
-            # Hardcoded GitHub raw CSV URL
-            github_csv_url = "https://raw.githubusercontent.com/OpenMined/datasets/refs/heads/main/enclave/crop_stock_data.csv"
-            try:
-                response = requests.get(github_csv_url)
-                response.raise_for_status()
-                mock_dataset_path.write_bytes(response.content)
-                logger.debug(
-                    f"Mock dataset downloaded and saved to: {mock_dataset_path}"
-                )
-            except Exception as e:
-                logger.error(f"Failed to download mock dataset: {e}")
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Failed to download mock dataset from GitHub: {e}",
-                )
+            mock_dataset_path = mock_path / f"{mock_dataset.filename}"
+            mock_dataset_path.write_bytes(mock_dataset.file.read())
+            logger.debug(f"Uploaded mock dataset temporarily saved to: {mock_dataset_path}")
 
             # TODO fix None bug in syft_rds/client/local_stores/dataset.py:274 (if not Path(description_path).exists())
             dummy_description_path = Path(temp_dir) / "dummy_description.txt"
             dummy_description_path.touch()
 
-            dataset = datasite_client.dataset.create(
+            dataset_obj = datasite_client.dataset.create(
                 name=name,
                 summary=description,
                 path=real_path,
@@ -146,8 +137,8 @@ async def create_dataset(
                 description_path=dummy_description_path,
                 auto_approval=get_auto_approve_list(client),
             )
-            logger.debug(f"Dataset created: {dataset}")
-            return dataset
+            logger.debug(f"Dataset created: {dataset_obj}")
+            return dataset_obj
     except HTTPException:
         raise
     except Exception as e:
