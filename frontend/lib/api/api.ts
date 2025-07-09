@@ -51,14 +51,13 @@ interface DatasetListResponse {
   datasets: DatasetResponse[]
 }
 
-interface JobStatus {
-  pending_code_review: "pending_code_review"
-  job_run_failed: "job_run_failed"
-  job_run_finished: "job_run_finished"
-  rejected: "rejected"
-  shared: "shared"
-  approved: "approved"
-}
+type JobStatus = 
+  | "pending_code_review"
+  | "job_run_failed"
+  | "job_run_finished"
+  | "rejected"
+  | "shared"
+  | "approved"
 
 const pendingStatuses = ["pending_code_review", "job_run_failed"] as const
 const approvedStatuses = ["shared", "approved", "job_run_finished"] as const
@@ -194,9 +193,9 @@ export const apiService = {
         description: job.description,
         requestedTime: new Date(job.createdAt),
         requesterEmail: job.createdBy,
-        status: pendingStatuses.includes(job.status)
+        status: (pendingStatuses as readonly string[]).includes(job.status)
           ? "pending"
-          : approvedStatuses.includes(job.status)
+          : (approvedStatuses as readonly string[]).includes(job.status)
           ? "approved"
           : "denied",
       })),
@@ -269,5 +268,39 @@ export const apiService = {
     }
 
     return response
+  },
+
+  async approveJob(jobId: string): Promise<{ message: string }> {
+    const response = await fetch(
+      `${getBaseUrl()}/api/v1/jobs/${jobId}/approve`,
+      {
+        method: "POST",
+      }
+    )
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.detail || "Failed to approve job")
+    }
+
+    const data = await response.json()
+    return data
+  },
+
+  async rejectJob(jobId: string): Promise<{ message: string }> {
+    const response = await fetch(
+      `${getBaseUrl()}/api/v1/jobs/${jobId}/reject`,
+      {
+        method: "POST",
+      }
+    )
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.detail || "Failed to reject job")
+    }
+
+    const data = await response.json()
+    return data
   },
 }

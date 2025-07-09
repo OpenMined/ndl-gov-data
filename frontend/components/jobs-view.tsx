@@ -26,6 +26,7 @@ import {
 import { apiService, type Job } from "@/lib/api/api";
 import { timeAgo } from "@/lib/utils";
 import { jobsApi } from "@/lib/api/jobs";
+import { useToast } from "@/components/ui/use-toast";
 
 export function JobsView() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -33,6 +34,8 @@ export function JobsView() {
   const [autoApprovalEmails, setAutoApprovalEmails] = useState<string[]>([]);
   const [newEmail, setNewEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [processingJobs, setProcessingJobs] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
 
   useEffect(() => {
     loadJobs();
@@ -91,14 +94,51 @@ export function JobsView() {
     }
   };
 
-  const handleJobAction = (jobUid: string, action: "approve" | "deny") => {
-    setJobs(
-      jobs.map((job) =>
-        job.uid === jobUid
-          ? { ...job, status: action === "approve" ? "approved" : "denied" }
-          : job
-      )
-    );
+  const handleJobAction = async (jobUid: string, action: "approve" | "deny") => {
+    // Add job to processing set to show loading state
+    setProcessingJobs(prev => new Set(prev).add(jobUid));
+
+    try {
+      let response;
+      if (action === "approve") {
+        response = await apiService.approveJob(jobUid);
+      } else {
+        response = await apiService.rejectJob(jobUid);
+      }
+
+      // Update local state
+      setJobs(prevJobs =>
+        prevJobs.map((job) =>
+          job.uid === jobUid
+            ? { ...job, status: action === "approve" ? "approved" : "denied" }
+            : job
+        )
+      );
+
+      // Show success toast
+      toast({
+        title: action === "approve" ? "Job Approved" : "Job Rejected",
+        description: response.message,
+        variant: "default",
+      });
+
+    } catch (error) {
+      console.error(`Failed to ${action} job:`, error);
+      
+      // Show error toast
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : `Failed to ${action} job`,
+        variant: "destructive",
+      });
+    } finally {
+      // Remove job from processing set
+      setProcessingJobs(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(jobUid);
+        return newSet;
+      });
+    }
   };
 
   const getJobsByStatus = (status: Job["status"]) => {
@@ -270,18 +310,28 @@ export function JobsView() {
                                 onClick={() =>
                                   handleJobAction(job.uid, "approve")
                                 }
+                                disabled={processingJobs.has(job.uid)}
                                 className="border-emerald-500 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
                               >
-                                <Check className="mr-2 h-4 w-4" />
+                                {processingJobs.has(job.uid) ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Check className="mr-2 h-4 w-4" />
+                                )}
                                 Approve
                               </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleJobAction(job.uid, "deny")}
+                                disabled={processingJobs.has(job.uid)}
                                 className="border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/30"
                               >
-                                <X className="mr-2 h-4 w-4" />
+                                {processingJobs.has(job.uid) ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <X className="mr-2 h-4 w-4" />
+                                )}
                                 Deny
                               </Button>
                             </>
