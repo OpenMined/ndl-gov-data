@@ -34,7 +34,6 @@ import {
 
 // Utils
 import { apiService, type Dataset } from "@/lib/api/api";
-import { timeAgo } from "@/lib/utils";
 
 export function DatasetsView() {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
@@ -136,7 +135,7 @@ export function DatasetsView() {
 
       <div className="space-y-4">
         {datasets.map((dataset) => (
-          <Card key={dataset.id} className="hover:shadow-md transition-shadow">
+          <Card key={dataset.uid} className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex justify-between items-start">
                 {/* Left side content */}
@@ -217,19 +216,14 @@ export function DatasetsView() {
                           <div className="flex items-center space-x-1">
                             <Calendar className="h-4 w-4 shrink-0" />
                             <span className="whitespace-nowrap">
-                              Updated {timeAgo(dataset.lastUpdated)}
+                              Updated{" "}
+                              {new Date(dataset.lastUpdated).toISOString().slice(0, 10)}
                             </span>
                           </div>
                         </TooltipTrigger>
                         <TooltipContent>
                           Last updated on{" "}
-                          {dataset.lastUpdated.toLocaleDateString(undefined, {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {new Date(dataset.lastUpdated).toISOString().slice(0, 10)}
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -253,9 +247,9 @@ export function DatasetsView() {
 
                   {/* User permissions pills */}
                   <div className="flex flex-wrap gap-2">
-                    {dataset.permissions.map((email, index) => (
+                    {dataset.permissions.map((email) => (
                       <Badge
-                        key={index}
+                        key={email}
                         variant="outline"
                         className="text-xs bg-muted"
                       >
