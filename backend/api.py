@@ -1,6 +1,7 @@
 # Standard library imports
 from pathlib import Path
 import tempfile
+import webbrowser
 from fastapi.responses import JSONResponse, StreamingResponse
 import requests
 from uuid import UUID
@@ -181,8 +182,7 @@ async def delete_dataset(
         delete_res = datasite_client.dataset.delete(dataset_name)
         if not delete_res:
             raise HTTPException(
-                status_code=404,
-                detail=f"Unable to delete dataset '{dataset_name}'"
+                status_code=404, detail=f"Unable to delete dataset '{dataset_name}'"
             )
         logger.debug(f"Dataset {dataset_name} deleted successfully")
         return JSONResponse(
@@ -240,6 +240,14 @@ async def download_dataset_private(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@v1_router.get("/jobs/open-code/{job_uid}")
+async def open_job_code(job_uid: str, client: Client = Depends(get_client)):
+    datasite_client = init_session(client.email)
+    job = datasite_client.jobs.get(uid=job_uid)
+    webbrowser.open(f"file://{job.user_code.local_dir}")
+    return
+
+
 # -----------------------------------------------
 
 # --------------- Job Endpoints ---------------
@@ -261,8 +269,9 @@ async def list_jobs(
     except Exception as e:
         logger.error(f"Error listing jobs: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
-# job approval endpoint 
+
+
+# job approval endpoint
 @v1_router.post(
     "/jobs/{job_id}/approve",
     tags=["jobs"],
@@ -276,7 +285,7 @@ async def approve_job(
     try:
         datasite_client = init_session(client.email)
         job = datasite_client.jobs.get(uid=UUID(job_id))
-        
+
         # Approve the job
         approved_job = datasite_client.jobs.approve(job)
         logger.debug(f"Job {approved_job} approved successfully")
@@ -287,7 +296,7 @@ async def approve_job(
     except Exception as e:
         logger.error(f"Error approving job {job_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 
 # job rejection endpoint
 @v1_router.post(
@@ -303,7 +312,7 @@ async def reject_job(
     try:
         datasite_client = init_session(client.email)
         job = datasite_client.jobs.get(uid=UUID(job_id))
-        
+
         # Reject the job
         rejected_job = datasite_client.jobs.reject(job)
         logger.debug(f"Job {rejected_job} rejected successfully")
